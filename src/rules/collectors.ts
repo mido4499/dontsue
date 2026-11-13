@@ -224,6 +224,58 @@ const accounts: CollectorRule[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Third-party processors: AI and email providers receive user data and must
+// be disclosed in the privacy policy.
+// ---------------------------------------------------------------------------
+
+function processor(
+  id: string,
+  vendor: string,
+  category: "ai" | "email",
+  confidence: Confidence,
+  dependencies: string[],
+  strings: RegExp[] = [],
+): CollectorRule {
+  const dataTypes = category === "ai" ? ["user-content"] : ["email"];
+  const rule: CollectorRule = { id, vendor, category, dataTypes, requires: PRIVACY, confidence, dependencies };
+  if (strings.length) rule.strings = strings;
+  return rule;
+}
+
+// AI SDKs are sometimes used on non-personal data (e.g. internal tooling), so medium.
+const ai: CollectorRule[] = [
+  processor("ai/anthropic", "Anthropic", "ai", "medium", ["@anthropic-ai/sdk", "@ai-sdk/anthropic", "@langchain/anthropic"], [/api\.anthropic\.com/]),
+  processor("ai/openai", "OpenAI", "ai", "medium", ["openai", "@ai-sdk/openai", "@langchain/openai"], [/api\.openai\.com/]),
+  processor(
+    "ai/google-gemini",
+    "Google Gemini",
+    "ai",
+    "medium",
+    ["@google/genai", "@google/generative-ai", "@ai-sdk/google", "@langchain/google-genai"],
+    [/generativelanguage\.googleapis\.com/],
+  ),
+  processor("ai/mistral", "Mistral", "ai", "medium", ["@mistralai/mistralai", "@ai-sdk/mistral"], [/api\.mistral\.ai/]),
+  processor("ai/groq", "Groq", "ai", "medium", ["groq-sdk", "@ai-sdk/groq"], [/api\.groq\.com/]),
+  processor("ai/cohere", "Cohere", "ai", "medium", ["cohere-ai", "@ai-sdk/cohere"], [/api\.cohere\.(ai|com)/]),
+  processor("ai/replicate", "Replicate", "ai", "medium", ["replicate"], [/api\.replicate\.com/]),
+  processor("ai/openrouter", "OpenRouter", "ai", "medium", ["@openrouter/ai-sdk-provider"], [/openrouter\.ai\/api/]),
+];
+
+// Sending email always means handing the recipient's address to the provider.
+const email: CollectorRule[] = [
+  processor("email/resend", "Resend", "email", "high", ["resend"], [/api\.resend\.com/]),
+  processor("email/sendgrid", "SendGrid", "email", "high", ["@sendgrid/mail", "@sendgrid/client"], [/api\.sendgrid\.com/]),
+  processor("email/postmark", "Postmark", "email", "high", ["postmark"], [/api\.postmarkapp\.com/]),
+  processor("email/mailgun", "Mailgun", "email", "high", ["mailgun.js", "mailgun-js"], [/api\.(eu\.)?mailgun\.net/]),
+  processor("email/brevo", "Brevo", "email", "high", ["@getbrevo/brevo", "sib-api-v3-sdk"], [/api\.(brevo|sendinblue)\.com/]),
+  processor("email/mailchimp", "Mailchimp", "email", "high", ["@mailchimp/mailchimp_marketing", "@mailchimp/mailchimp_transactional"], [/\.api\.mailchimp\.com/, /mandrillapp\.com\/api/]),
+  processor("email/aws-ses", "Amazon SES", "email", "high", ["@aws-sdk/client-ses", "@aws-sdk/client-sesv2"]),
+  processor("email/loops", "Loops", "email", "high", ["loops"], [/app\.loops\.so\/api/]),
+  // SMTP: the provider is configured at runtime, so we know email is sent but not to whom.
+  processor("email/smtp", "SMTP email provider", "email", "medium", ["nodemailer"]),
+];
+
+// ---------------------------------------------------------------------------
 // Device APIs
 // ---------------------------------------------------------------------------
 
@@ -318,4 +370,4 @@ const forms: CollectorRule[] = [
   formRule("payment/card-field", ["payment"], { autocomplete: /^cc-/, names: /^(cardnumber|ccnumber|cvc|cvv)$/ }, "payment"),
 ];
 
-export const collectorRules: CollectorRule[] = [...trackers, ...accounts, ...device, ...forms];
+export const collectorRules: CollectorRule[] = [...trackers, ...accounts, ...ai, ...email, ...device, ...forms];

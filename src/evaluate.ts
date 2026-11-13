@@ -7,7 +7,19 @@ const LABEL: Record<string, string> = {
   payment: "payments",
   location: "location",
   device: "camera/microphone",
+  ai: "AI providers",
+  email: "email providers",
 };
+
+/** Vendors that receive user data from the app's own code (not trackers). */
+function processors(findings: Finding[]): string[] {
+  return uniq(findings.filter((f) => (f.category === "ai" || f.category === "email") && f.vendor).map((f) => f.vendor!)).sort();
+}
+
+/** ["a"] -> "a", ["a","b"] -> "a and b", ["a","b","c"] -> "a, b and c" */
+function listJoin(xs: string[]): string {
+  return xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
+}
 
 function uniq<T>(xs: T[]): T[] {
   return [...new Set(xs)];
@@ -30,10 +42,12 @@ export function evaluate(findings: Finding[], policies: Policies): Issue[] {
   const privacyNeeded = needing(findings, "privacy-policy");
   if (privacyNeeded.length && !policies.privacyPolicy.found) {
     const high = privacyNeeded.some((f) => f.confidence === "high");
+    const shared = processors(privacyNeeded);
+    const sharing = shared.length ? ` and shares it with ${listJoin(shared)}` : "";
     issues.push({
       id: "missing-privacy-policy",
       severity: high ? "error" : "warn",
-      message: `App collects personal data (${describe(privacyNeeded)}) but no privacy policy route, page, or link was found.`,
+      message: `App collects personal data (${describe(privacyNeeded)})${sharing}, but no privacy policy route, page, or link was found.`,
       fix: `Add a privacy policy page (e.g. /privacy) that discloses each data type and third party, and link it from your footer and signup forms. If it's hosted elsewhere, set "privacyPolicyUrl" in dontsue.config.json.`,
       relatedFindings: uniq(privacyNeeded.map((f) => f.ruleId)),
     });

@@ -2,6 +2,17 @@ import pc from "picocolors";
 import type { PolicyStatus, Report } from "../types.js";
 
 const MAX_PER_RULE = 5;
+const MAX_LOC = 56;
+const MAX_EVIDENCE = 44;
+
+/**
+ * Pad or shorten to exactly `width` columns. Paths are cut at the start so the
+ * file name and line number stay visible; evidence is cut at the end.
+ */
+export function fit(s: string, width: number, cut: "start" | "end"): string {
+  if (s.length <= width) return s.padEnd(width);
+  return cut === "start" ? "…" + s.slice(s.length - width + 1) : s.slice(0, width - 1) + "…";
+}
 
 export function formatPretty(report: Report, opts: { color?: boolean } = {}): string {
   const c = pc.createColors(opts.color ?? pc.isColorSupported);
@@ -23,11 +34,16 @@ export function formatPretty(report: Report, opts: { color?: boolean } = {}): st
       if (group.length > MAX_PER_RULE) rows.push(["", c.dim(`… and ${group.length - MAX_PER_RULE} more (${group[0]!.ruleId})`), "", ""]);
     }
     const w0 = Math.max(...rows.map((r) => r[0]!.length));
-    const w1 = Math.min(48, Math.max(...rows.map((r) => r[1]!.length)));
-    const w2 = Math.min(44, Math.max(...rows.map((r) => r[2]!.length)));
+    const w1 = Math.min(MAX_LOC, Math.max(...rows.map((r) => r[1]!.length)));
+    const w2 = Math.min(MAX_EVIDENCE, Math.max(...rows.map((r) => r[2]!.length)));
     for (const [cat, loc, ev, conf] of rows) {
+      if (!cat) {
+        // "… and N more" row: let it span the table.
+        out.push(`  ${"".padEnd(w0)}  ${loc}`);
+        continue;
+      }
       const confColor = conf === "high" ? c.red : conf === "medium" ? c.yellow : c.dim;
-      out.push(`  ${c.cyan(cat!.padEnd(w0))}  ${loc!.padEnd(w1)}  ${ev!.padEnd(w2)}  ${confColor(conf!)}`);
+      out.push(`  ${c.cyan(cat.padEnd(w0))}  ${fit(loc!, w1, "start")}  ${fit(ev!, w2, "end")}  ${confColor(conf!)}`);
     }
   } else {
     out.push(c.green("No data collection detected."));

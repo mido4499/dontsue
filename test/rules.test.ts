@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { collectorRules } from "../src/rules/collectors.js";
 import { classifyLink, classifyRoute, importPackageName, matchesPackage } from "../src/rules/policies.js";
 import type { ElementFact } from "../src/types.js";
-import { matchElements } from "./helpers.js";
+import { matchElements, rule } from "./helpers.js";
 
 describe("rule registry", () => {
   it("has unique rule ids", () => {
@@ -76,6 +76,43 @@ describe("other form rules", () => {
     ["pii/password-field", `<input type="text" />`],
   ])("%s does not match %s", (id, code) => {
     expect(matchElements(id, code)).toHaveLength(0);
+  });
+});
+
+describe("AI and email processor rules", () => {
+  const strings = (id: string) => rule(id).strings ?? [];
+  const hits = (id: string, s: string) => strings(id).some((re) => re.test(s));
+
+  it.each([
+    ["ai/anthropic", "https://api.anthropic.com/v1/messages"],
+    ["ai/openai", "https://api.openai.com/v1/chat/completions"],
+    ["ai/google-gemini", "https://generativelanguage.googleapis.com/v1beta/models"],
+    ["email/resend", "https://api.resend.com/emails"],
+    ["email/sendgrid", "https://api.sendgrid.com/v3/mail/send"],
+    ["email/mailgun", "https://api.eu.mailgun.net/v3/x/messages"],
+  ])("%s matches API URL %s", (id, url) => {
+    expect(hits(id, url)).toBe(true);
+  });
+
+  it.each([
+    ["email/resend", "/api/auth/verify/resend"],
+    ["email/resend", "App <onboarding@resend.dev>"],
+    ["ai/openai", "https://openai.com/policies/privacy-policy"],
+    ["ai/anthropic", "https://www.anthropic.com/legal/privacy"],
+  ])("%s does not match %s", (id, s) => {
+    expect(hits(id, s)).toBe(false);
+  });
+
+  it("every AI and email rule names its vendor (needed for the disclosure message)", () => {
+    for (const r of collectorRules.filter((r) => r.category === "ai" || r.category === "email")) {
+      expect(r.vendor, r.id).toBeTruthy();
+      expect(r.requires, r.id).toEqual(["privacy-policy"]);
+    }
+  });
+
+  it("email providers are high confidence, AI providers medium", () => {
+    expect(rule("email/resend").confidence).toBe("high");
+    expect(rule("ai/anthropic").confidence).toBe("medium");
   });
 });
 

@@ -88,6 +88,22 @@ const EXPECTED: Record<string, Expectation> = {
     check: (r) => expect(r.findings[0]).toMatchObject({ file: "src/analytics.ts", line: 1, evidence: `import "mixpanel-browser"` }),
   },
   "false-positives": { issues: [], findings: [], exactFindings: true, privacy: false },
+  "ai-and-email-services": {
+    // Email is high confidence, so this is an error even though AI alone would only warn.
+    issues: ["missing-privacy-policy:error"],
+    findings: ["ai/anthropic", "email/resend"],
+    exactFindings: true,
+    check: (r) => {
+      expect(r.findings.find((f) => f.ruleId === "ai/anthropic")).toMatchObject({ file: "package.json", line: 4, confidence: "medium" });
+      // Matched by API URL, since there's no SDK.
+      expect(r.findings.find((f) => f.ruleId === "email/resend")).toMatchObject({
+        file: "lib/email.ts",
+        line: 5,
+        evidence: "https://api.resend.com/emails",
+      });
+      expect(r.issues[0]!.message).toContain("shares it with Anthropic and Resend,");
+    },
+  },
   "broken-file": {
     issues: ["missing-privacy-policy:error"],
     findings: ["pii/email-field"],

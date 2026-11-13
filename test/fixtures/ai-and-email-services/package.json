@@ -1,0 +1,7 @@
+{
+  "name": "resume-app",
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.125.0",
+    "next": "16.0.0"
+  }
+}

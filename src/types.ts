@@ -1,6 +1,6 @@
 export type Confidence = "high" | "medium" | "low";
 
-export type Category = "pii" | "tracking" | "auth" | "payment" | "location" | "device";
+export type Category = "pii" | "tracking" | "auth" | "payment" | "location" | "device" | "ai" | "email";
 
 /** What a piece of data collection obliges the app to have. */
 export type Requirement = "privacy-policy" | "terms-of-service" | "cookie-consent";
