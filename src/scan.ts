@@ -38,10 +38,47 @@ export const VERSION: string = (() => {
 const IGNORE_LINE = /dontsue-ignore(?!-file)/;
 const IGNORE_FILE = /dontsue-ignore-file/;
 
-interface ParsedFile {
+export interface ParsedFile {
   facts: FileFacts;
   /** Lines whose findings are suppressed by a `dontsue-ignore` comment. */
   ignoredLines: Set<number>;
+}
+
+export interface EvaluateParsedInput {
+  root: string;
+  scannedFiles: number;
+  startedAt: number;
+  parsed: ParsedFile[];
+  dependencies: DependencyFact[];
+  skipped: SkippedFile[];
+  routes: { file: string; kinds: ("privacy" | "terms")[] }[];
+  config: Config;
+}
+
+/** Run collector rules, policy detection, and issue evaluation on already-parsed facts. */
+export function buildReport(input: EvaluateParsedInput): Report {
+  const { root, scannedFiles, startedAt, parsed, dependencies, skipped, routes, config } = input;
+  const rules = collectorRules.filter((r) => config.rules?.[r.id] !== "off");
+  const findings = rules.flatMap((rule) => runRule(rule, parsed, dependencies));
+  findings.sort((a, b) => a.file.localeCompare(b.file) || (a.line ?? 0) - (b.line ?? 0) || a.ruleId.localeCompare(b.ruleId));
+
+  const policies = detectPolicies(parsed, dependencies, routes, config);
+  const issues = evaluate(findings, policies);
+
+  return {
+    version: VERSION,
+    root,
+    scannedFiles,
+    durationMs: Math.round(performance.now() - startedAt),
+    findings,
+    policies,
+    issues,
+    skipped,
+    summary: {
+      errors: issues.filter((i) => i.severity === "error").length,
+      warnings: issues.filter((i) => i.severity === "warn").length,
+    },
+  };
 }
 
 export async function scan(target: string, options: ScanOptions = {}): Promise<Report> {
@@ -53,7 +90,6 @@ export async function scan(target: string, options: ScanOptions = {}): Promise<R
   if (!info.isDirectory()) throw new ScanError(`Not a directory: ${target}`);
 
   const config = options.config ?? (await loadConfig(root, options.configPath));
-  const rules = collectorRules.filter((r) => config.rules?.[r.id] !== "off");
   const files = await listFiles(root, config.ignore);
 
   const parsed: ParsedFile[] = [];
@@ -97,26 +133,16 @@ export async function scan(target: string, options: ScanOptions = {}): Promise<R
     }
   }
 
-  const findings = rules.flatMap((rule) => runRule(rule, parsed, dependencies));
-  findings.sort((a, b) => a.file.localeCompare(b.file) || (a.line ?? 0) - (b.line ?? 0) || a.ruleId.localeCompare(b.ruleId));
-
-  const policies = detectPolicies(parsed, dependencies, routes, config);
-  const issues = evaluate(findings, policies);
-
-  return {
-    version: VERSION,
+  return buildReport({
     root,
     scannedFiles: files.length,
-    durationMs: Math.round(performance.now() - started),
-    findings,
-    policies,
-    issues,
+    startedAt: started,
+    parsed,
+    dependencies,
     skipped,
-    summary: {
-      errors: issues.filter((i) => i.severity === "error").length,
-      warnings: issues.filter((i) => i.severity === "warn").length,
-    },
-  };
+    routes,
+    config,
+  });
 }
 
 function readDependencies(code: string, file: string): DependencyFact[] {

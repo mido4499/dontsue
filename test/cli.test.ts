@@ -13,6 +13,11 @@ function run(...args: string[]) {
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
+function runWithInput(input: string, ...args: string[]) {
+  const r = spawnSync(process.execPath, [CLI, ...args], { input, encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } });
+  return { code: r.status, stdout: r.stdout, stderr: r.stderr };
+}
+
 describe("cli", () => {
   it("exits 0 on a clean project", () => {
     const r = run(fixture("clean-static-site"));
@@ -85,5 +90,26 @@ describe("cli", () => {
   it("--version and --help exit 0", () => {
     expect(run("--version").stdout.trim()).toBe("0.1.0");
     expect(run("--help").code).toBe(0);
+  });
+
+  it("prompts for URL when choosing live website (1) in interactive mode", () => {
+    const r = runWithInput("1\nftp://invalid.example\n");
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("live website");
+    expect(r.stderr).toContain("Enter website URL:");
+    expect(r.stderr).toContain("Unsupported URL protocol");
+  });
+
+  it("supports choosing dev project (2) in interactive mode", () => {
+    const r = runWithInput(`2\n${fixture("signup-no-policy")}\n`);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("dev project");
+    expect(r.stdout).toContain("missing-privacy-policy");
+  });
+
+  it("exits 2 on an invalid interactive mode selection", () => {
+    const r = runWithInput("3\n");
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("Invalid selection");
   });
 });

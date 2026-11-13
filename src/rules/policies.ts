@@ -37,6 +37,17 @@ export function classifyRoute(relPath: string): PolicyKind[] {
   return [];
 }
 
+/** Decide whether a live URL pathname (e.g. "/privacy", "/terms-of-service") is a policy page. */
+export function classifyUrlPath(pathname: string): PolicyKind[] {
+  const segments = pathname.split("/").filter(Boolean);
+  const last = (segments[segments.length - 1] ?? "").replace(/\.html?$/i, "");
+  if (!last) return [];
+  if (PRIVACY_SLUG.test(last)) return ["privacy"];
+  if (TERMS_SLUG.test(last)) return ["terms"];
+  if (LEGAL_SLUG.test(last)) return ["privacy", "terms"];
+  return [];
+}
+
 const PRIVACY_HREF = /privacy|datenschutz|iubenda\.com\/privacy|termly\.io/i;
 const TERMS_HREF = /terms|\/tos\b|conditions|\/eula\b/i;
 const PRIVACY_TEXT = /privacy\s*(policy|notice|statement)?/i;

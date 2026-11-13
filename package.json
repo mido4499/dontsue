@@ -4,7 +4,7 @@
   "description": "Flags apps that collect personal data without a privacy policy, terms of service, or cookie consent.",
   "type": "module",
   "bin": {
-    "dontsue": "./dist/cli.js"
+    "dontsue": "dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,13 +18,14 @@
     "dist"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "privacy",
@@ -36,6 +37,14 @@
     "compliance"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mido4499/dontsue.git"
+  },
+  "homepage": "https://github.com/mido4499/dontsue#readme",
+  "bugs": {
+    "url": "https://github.com/mido4499/dontsue/issues"
+  },
   "dependencies": {
     "@babel/parser": "^8.1.0",
     "commander": "^15.0.0",
